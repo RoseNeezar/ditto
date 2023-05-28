@@ -1,40 +1,53 @@
-//@ts-nocheck
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { tasks, columns } from "./mock";
 import {
-  DndContext,
-  DragOverlay,
-  MeasuringStrategy,
-  MouseSensor,
   closestCenter,
-  defaultDropAnimationSideEffects,
-  getFirstCollision,
   pointerWithin,
   rectIntersection,
-  useSensor,
+  getFirstCollision,
   useSensors,
+  useSensor,
+  MouseSensor,
+  DndContext,
+  MeasuringStrategy,
+  DragOverlay,
+  DragStartEvent,
+  UniqueIdentifier,
+  DragOverEvent,
+  Active,
+  Over,
+  CollisionDetection,
+  Collision,
+  DragEndEvent,
 } from "@dnd-kit/core";
 import {
-  SortableContext,
   arrayMove,
+  SortableContext,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import update from "immutability-helper";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { FieldItem, SectionItem } from "./components/Item";
 import { createPortal } from "react-dom";
+import update from "immutability-helper";
+import List from "./components/List";
+import Task from "./components/Task";
 
-export default function Tasks({ tasks, columns }) {
-  const [data, setData] = useState(null);
-  const [items, setItems] = useState({});
-  const [containers, setContainers] = useState([]);
-  const [activeId, setActiveId] = useState(null);
-  const lastOverId = useRef(null);
+type Props = {
+  Tasks: typeof tasks;
+  List: typeof columns;
+};
+
+const Kanban = ({ List: columns, Tasks: tasks }: Props) => {
+  const [data, setData] = useState<typeof tasks>(tasks);
+  const [items, setItems] = useState<Record<UniqueIdentifier, string[]>>({});
+  const [containers, setContainers] = useState<UniqueIdentifier[]>([]);
+  const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
+  const lastOverId = useRef<UniqueIdentifier | null>(null);
   const recentlyMovedToNewContainer = useRef(false);
   const isSortingContainer = activeId ? containers.includes(activeId) : false;
 
   useEffect(() => {
     if (tasks) {
       setData(tasks);
-      let cols = {};
+      let cols = {} as Record<string, string[]>;
       columns.sort((a, b) => a.order - b.order);
       columns.forEach((c) => {
         cols["column-" + c.id] = [];
@@ -43,11 +56,13 @@ export default function Tasks({ tasks, columns }) {
         if (!("column-" + d.col_id in cols)) {
           cols["column-" + d.col_id] = [];
         }
-        cols["column-" + d.col_id].push("task-" + d.id);
+        cols["column-" + d.col_id]?.push("task-" + d.id);
       });
       setItems(cols);
       setContainers(Object.keys(cols));
       console.log("====", {
+        tasks,
+        acC: columns,
         data: tasks,
         columns,
         cols,
@@ -57,16 +72,22 @@ export default function Tasks({ tasks, columns }) {
   }, [tasks, columns]);
 
   const moveBetweenContainers = useCallback(
-    (activeContainer, overContainer, active, over, overId) => {
+    (
+      activeContainer: UniqueIdentifier,
+      overContainer: UniqueIdentifier,
+      active: Active,
+      over: Over,
+      overId: UniqueIdentifier
+    ) => {
       const activeItems = items[activeContainer];
       const overItems = items[overContainer];
-      const overIndex = overItems.indexOf(overId);
-      const activeIndex = activeItems.indexOf(active.id);
+      const overIndex = overItems?.indexOf(overId as string);
+      const activeIndex = activeItems?.indexOf(active.id as string);
 
       let newIndex;
 
       if (overId in items) {
-        newIndex = overItems.length + 1;
+        newIndex = overItems!.length + 1;
       } else {
         const isBelowOverItem =
           over &&
@@ -76,7 +97,10 @@ export default function Tasks({ tasks, columns }) {
 
         const modifier = isBelowOverItem ? 1 : 0;
 
-        newIndex = overIndex >= 0 ? overIndex + modifier : overItems.length + 1;
+        newIndex =
+          overIndex && overIndex >= 0
+            ? overIndex + modifier
+            : overItems && overItems.length + 1;
       }
       recentlyMovedToNewContainer.current = true;
 
@@ -87,9 +111,8 @@ export default function Tasks({ tasks, columns }) {
           },
           [overContainer]: {
             $splice: [[newIndex, 0, active.id]],
-            //$splice: [[newIndex, 0, items[activeContainer][activeIndex]],
           },
-        })
+        } as any)
       );
     },
     [items]
@@ -103,7 +126,7 @@ export default function Tasks({ tasks, columns }) {
    * - If there are no intersecting containers, return the last matched intersection
    *
    */
-  const collisionDetectionStrategy = useCallback(
+  const collisionDetectionStrategy = useCallback<CollisionDetection>(
     (args) => {
       if (activeId && activeId in items) {
         return closestCenter({
@@ -128,22 +151,23 @@ export default function Tasks({ tasks, columns }) {
           const containerItems = items[overId];
 
           // If a container is matched and it contains items (columns 'A', 'B', 'C')
-          if (containerItems.length > 0) {
+          if (containerItems && containerItems.length > 0) {
             // Return the closest droppable within that container
-            overId = closestCenter({
-              ...args,
-              droppableContainers: args.droppableContainers.filter(
-                (container) =>
-                  container.id !== overId &&
-                  containerItems.includes(container.id)
-              ),
-            })[0]?.id;
+            overId =
+              closestCenter({
+                ...args,
+                droppableContainers: args.droppableContainers.filter(
+                  (container) =>
+                    container.id !== overId &&
+                    containerItems.includes(container.id as string)
+                ),
+              })[0]?.id || null;
           }
         }
 
         lastOverId.current = overId;
 
-        return [{ id: overId }];
+        return [{ id: overId }] as Collision[];
       }
 
       // When a draggable item moves to a new container, the layout may shift
@@ -160,7 +184,10 @@ export default function Tasks({ tasks, columns }) {
     [activeId, items]
   );
 
-  const [clonedItems, setClonedItems] = useState(null);
+  const [clonedItems, setClonedItems] = useState<Record<
+    UniqueIdentifier,
+    string[]
+  > | null>(null);
   const sensors = useSensors(
     useSensor(MouseSensor, {
       // activationConstraint: {
@@ -169,23 +196,19 @@ export default function Tasks({ tasks, columns }) {
       //   tolerance: 1,
       // },
     })
-    //useSensor(TouchSensor)
-    // useSensor(KeyboardSensor, {
-    //   coordinateGetter: sortableKeyboardCoordinates
-    // })
   );
 
-  const findContainer = (id) => {
+  const findContainer = (id: UniqueIdentifier) => {
     if (id in items) return id;
-    return containers.find((key) => items[key].includes(id));
+    return containers.find((key) => items[key]?.includes(id as string));
   };
 
-  function handleDragStart({ active }) {
+  function handleDragStart({ active }: DragStartEvent) {
     setActiveId(active.id);
     setClonedItems(items);
   }
 
-  function handleDragOver({ active, over }) {
+  function handleDragOver({ active, over }: DragOverEvent) {
     const overId = over?.id;
 
     if (!overId || active.id in items) return;
@@ -206,7 +229,7 @@ export default function Tasks({ tasks, columns }) {
     }
   }
 
-  function handleDragEnd({ active, over }) {
+  function handleDragEnd({ active, over }: DragEndEvent) {
     if (!over) {
       setActiveId(null);
       return;
@@ -231,16 +254,16 @@ export default function Tasks({ tasks, columns }) {
     const overContainer = findContainer(over.id);
 
     if (overContainer) {
-      const activeIndex = items[activeContainer].indexOf(active.id);
-      const overIndex = items[overContainer].indexOf(over.id);
+      const activeIndex = items[activeContainer]?.indexOf(active.id as string);
+      const overIndex = items[overContainer]?.indexOf(over.id as string);
 
       if (activeIndex !== overIndex) {
         setItems((items) => ({
           ...items,
           [overContainer]: arrayMove(
-            items[overContainer],
-            activeIndex,
-            overIndex
+            items[overContainer]!,
+            activeIndex!,
+            overIndex!
           ),
         }));
       }
@@ -288,12 +311,12 @@ export default function Tasks({ tasks, columns }) {
           >
             {containers.map((containerId) => {
               return (
-                <SectionItem
+                <List
                   id={containerId}
                   key={containerId}
-                  items={items[containerId]}
+                  items={items[containerId]!}
                   name={
-                    columns.filter((c) => "column-" + c.id === containerId)[0]
+                    columns.filter((c) => "column-" + c.id === containerId)[0]!
                       .name
                   }
                   data={data}
@@ -304,20 +327,26 @@ export default function Tasks({ tasks, columns }) {
           </SortableContext>
         </div>
         {createPortal(
-          <DragOverlay transition={""} adjustScale={false}>
+          <DragOverlay
+            adjustScale={false}
+            dropAnimation={{
+              duration: 75,
+            }}
+          >
             {activeId ? (
               containers.includes(activeId) ? (
-                <SectionItem
+                <List
                   id={activeId}
-                  items={items[activeId]}
+                  items={items[activeId]!}
                   name={
-                    columns.filter((c) => "column-" + c.id === activeId)[0].name
+                    columns.filter((c) => "column-" + c.id === activeId)[0]!
+                      .name
                   }
                   data={data}
                   dragOverlay
                 />
               ) : (
-                <FieldItem
+                <Task
                   id={activeId}
                   item={data.filter((d) => "task-" + d.id === activeId)[0]}
                   dragOverlay
@@ -330,4 +359,6 @@ export default function Tasks({ tasks, columns }) {
       </DndContext>
     </div>
   );
-}
+};
+
+export default Kanban;

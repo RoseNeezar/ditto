@@ -1,5 +1,4 @@
-//@ts-nocheck
-const PriorityBacklogOutlined = ({ color }) => {
+const PriorityBacklogOutlined = ({ color }: any) => {
   return (
     <span
       role="img"
@@ -22,7 +21,7 @@ const PriorityBacklogOutlined = ({ color }) => {
   );
 };
 
-const PriorityHighOutlined = ({ color }) => {
+const PriorityHighOutlined = ({ color }: any) => {
   return (
     <span
       role="img"
@@ -45,7 +44,7 @@ const PriorityHighOutlined = ({ color }) => {
   );
 };
 
-const PriorityNormalOutlined = ({ color }) => {
+const PriorityNormalOutlined = ({ color }: any) => {
   return (
     <span
       role="img"
@@ -69,7 +68,7 @@ const PriorityNormalOutlined = ({ color }) => {
   );
 };
 
-const PriorityUrgentOutlined = ({ color }) => {
+const PriorityUrgentOutlined = ({ color }: any) => {
   return (
     <span
       role="img"
