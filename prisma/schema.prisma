@@ -2,12 +2,12 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-    provider = "prisma-client-js"
+    provider        = "prisma-client-js"
     previewFeatures = ["jsonProtocol"]
 }
 
 datasource db {
-    provider = "sqlite"
+    provider = "mysql"
     // NOTE: When using mysql or sqlserver, uncomment the @db.Text annotations in model Account below
     // Further reading:
     // https://next-auth.js.org/adapters/prisma#create-the-prisma-schema
@@ -64,4 +64,37 @@ model VerificationToken {
     expires    DateTime
 
     @@unique([identifier, token])
+}
+
+model Board {
+    id     Int    @id @default(autoincrement())
+    title  String @unique @map(name: "board_title_idx") @db.VarChar(255)
+    userId String @map(name: "board_user_id_fk") @db.VarChar(255)
+    lists  List[]
+}
+
+model List {
+    id      Int    @id @default(autoincrement())
+    title   String @unique @map(name: "list_title_idx") @db.VarChar(255)
+    tasks   Task[]
+    board   Board  @relation(fields: [boardId], references: [id])
+    boardId Int    @map(name: "list_board_id_fk")
+}
+
+model Task {
+    id           Int     @id @default(autoincrement())
+    title        String  @unique @map(name: "task_title_idx") @db.VarChar(255)
+    descriptions String?
+    list         List    @relation(fields: [listId], references: [id])
+    listId       Int     @map(name: "task_list_id_fk")
+}
+
+// Example denormalization by combining related tables into a single table
+model BoardListTask {
+    id           Int     @id @default(autoincrement())
+    boardId      Int     @map(name: "board_list_task_board_id_fk")
+    listId       Int     @map(name: "board_list_task_list_id_fk")
+    taskId       Int     @map(name: "board_list_task_task_id_fk")
+    title        String  @db.VarChar(255)
+    descriptions String?
 }
