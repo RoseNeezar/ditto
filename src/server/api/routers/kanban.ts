@@ -7,12 +7,34 @@ import {
 } from "@/server/api/trpc";
 
 export const kanbanRouter = createTRPCRouter({
-  hello: publicProcedure
-    .input(z.object({ text: z.string() }))
-    .query(({ input }) => {
-      return {
-        greeting: `Hello ${input.text}`,
-      };
+  createBoard: protectedProcedure
+    .input(z.object({ title: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const { title } = input;
+      const { prisma, session } = ctx;
+      const existingBoard = await prisma.board.findFirst({
+        where: {
+          title,
+        },
+      });
+
+      if (existingBoard) {
+        throw new Error("Board already existed !");
+      }
+
+      try {
+        const board = await prisma.board.create({
+          data: {
+            title,
+            userId: session.user.id,
+            lists: [] as any,
+          },
+        });
+
+        return { board };
+      } catch (error: any) {
+        throw new Error(error);
+      }
     }),
 
   getAll: publicProcedure.query(({ ctx }) => {
