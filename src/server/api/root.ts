@@ -1,5 +1,5 @@
 import { createTRPCRouter } from "@/server/api/trpc";
-import { kanbanRouter } from "@/server/api/routers/kanban";
+import { boardRouter } from "@/server/api/routers/kanban";
 
 /**
  * This is the primary router for your server.
@@ -7,7 +7,7 @@ import { kanbanRouter } from "@/server/api/routers/kanban";
  * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
-  kanban: kanbanRouter,
+  board: boardRouter,
 });
 
 // export type definition of API
