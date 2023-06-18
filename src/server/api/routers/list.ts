@@ -7,36 +7,49 @@ import {
 } from "@/server/api/trpc";
 
 export const listRouter = createTRPCRouter({
-  createBoard: protectedProcedure
-    .input(z.object({ title: z.string() }))
+  createList: protectedProcedure
+    .input(z.object({ boardId: z.string(), title: z.string() }))
     .query(async ({ input, ctx }) => {
-      const { title } = input;
-      const { prisma, session } = ctx;
-      const existingBoard = await prisma.board.findFirst({
-        where: {
-          title,
-        },
-      });
-
-      if (existingBoard) {
-        throw new Error("Board already existed !");
-      }
-
       try {
-        const board = await prisma.board.create({
-          data: {
-            title,
-            userId: session.user.id,
-            lists: [] as any,
+        const { boardId, title } = input;
+        const { prisma, session } = ctx;
+
+        const board = await prisma.board.findFirst({
+          where: {
+            id: boardId,
           },
-          include: {
+          select: {
             lists: true,
           },
         });
 
-        return { board };
-      } catch (error: any) {
-        throw new Error(error);
-      }
+        if (!board) {
+          throw new Error("error no board");
+        }
+
+        const newList = await prisma.list.create({
+          data: {
+            title,
+            boardId,
+          },
+        });
+
+        board.lists.push(newList);
+
+        const newListOrder = board.lists;
+
+        await prisma.board.update({
+          where: {
+            id: boardId,
+          },
+          data: {
+            lists: {
+              connect: newListOrder.map((s) => ({ id: s.id })),
+            },
+          },
+        });
+
+        return { list: newListOrder };
+      } catch (error) {}
     }),
 });
