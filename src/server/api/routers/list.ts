@@ -52,4 +52,27 @@ export const listRouter = createTRPCRouter({
         return { list: newListOrder };
       } catch (error) {}
     }),
+  updateListTitle: protectedProcedure
+    .input(z.object({ listId: z.string(), title: z.string() }))
+    .query(async ({ input, ctx }) => {
+      try {
+        const { listId, title } = input;
+        const { prisma, session } = ctx;
+
+        const list = await prisma.list.update({
+          where: {
+            id: listId,
+          },
+          data: {
+            title,
+          },
+        });
+
+        if (!list) {
+          throw new Error("error no board");
+        }
+
+        return list;
+      } catch (error) {}
+    }),
 });
