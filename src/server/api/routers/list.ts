@@ -75,4 +75,30 @@ export const listRouter = createTRPCRouter({
         return list;
       } catch (error) {}
     }),
+  getListDetails: protectedProcedure
+    .input(z.object({ listId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      try {
+        const { listId } = input;
+        const { prisma } = ctx;
+
+        const list = await prisma.list.findFirst({
+          where: {
+            id: listId,
+          },
+          select: {
+            tasks: true,
+            title: true,
+            id: true,
+            board: true,
+          },
+        });
+
+        if (!list) {
+          throw new Error("error no board");
+        }
+
+        return list;
+      } catch (error) {}
+    }),
 });
