@@ -8,7 +8,7 @@ import {
 
 export const taskRouter = createTRPCRouter({
   createTask: protectedProcedure
-    .input(z.object({ boardId: z.string(), title: z.string() }))
+    .input(z.object({ listId: z.string(), title: z.string() }))
     .query(async ({ input, ctx }) => {
       try {
       } catch (error) {}
