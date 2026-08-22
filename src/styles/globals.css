@@ -70,6 +70,28 @@
   }
 }
 
+/* The landing page is printed on paper rather than the app's UI palette:
+   warm ground, brown-black ink, one earth accent. Scoped to .paper-theme so
+   the board keeps its own colours. */
+@layer base {
+  .paper-theme {
+    --paper: #ece7dc;
+    --ink: #2b2721;
+    --ink-soft: rgba(43, 39, 33, 0.58);
+    --ink-faint: rgba(43, 39, 33, 0.36);
+    --hairline: rgba(43, 39, 33, 0.14);
+    --earth: #9a6a3e;
+    --track-caps: 0.24em;
+    --font-display: "Instrument Serif", "New York", Georgia, "Times New Roman",
+      serif;
+    --font-book: Newsreader, "New York", Georgia, "Times New Roman", serif;
+  }
+  .paper-theme ::selection {
+    background: rgba(43, 39, 33, 0.85);
+    color: var(--paper);
+  }
+}
+
 @layer base {
   * {
     @apply border-border;

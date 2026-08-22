@@ -1,0 +1,669 @@
+/*
+ * The book, the leaf that turns, and the glass lying on top of it.
+ *
+ * Tailwind handles the page around this; the machinery here is masks,
+ * 3D transforms and a strip chain driven by custom properties, none of
+ * which belong in class soup. `--pg` is the paper's inset inside a plate
+ * SVG (PAPER.y0 in sketchbookEngine.ts) — the shading masks stop there so
+ * no ink lands on the transparent margin.
+ */
+.wrap {
+  --pg: 7%;
+  display: grid;
+  justify-items: center;
+  gap: 20px;
+  width: 100%;
+  position: relative;
+  z-index: 2;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.wrap img {
+  -webkit-user-drag: none;
+}
+
+.stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  position: relative;
+  touch-action: pan-y;
+}
+
+.arrow {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: pointer;
+  transition: color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 8;
+}
+.arrow:hover {
+  color: var(--ink);
+}
+
+/* The frame is the book's own untransformed box: the loupe lives here, on
+   the desk, while only .tilt leans and scales underneath it. */
+.frame {
+  position: relative;
+  flex: 1 1;
+  min-width: 0;
+  /* the spread is 1.6:1, so capping the width by viewport height keeps the
+     captions and the toolbar above the fold on a short window */
+  max-width: min(900px, 80svh);
+  perspective: 1750px;
+  perspective-origin: 50% 46%;
+}
+.tilt {
+  position: relative;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg))
+    scale(var(--zoom, 1));
+  will-change: transform;
+}
+.book {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1760 / 1100;
+  transform-style: preserve-3d;
+  z-index: 1;
+}
+
+/* The book sits on a surface, so its shadow is a soft pool underneath —
+   no box, no filter on the artwork, nothing with an edge of its own.
+   Both blobs fade to zero well inside their own bounds, and both ease
+   off while a leaf is in the air. */
+.cast {
+  position: absolute;
+  pointer-events: none;
+  z-index: 0;
+}
+.ambient {
+  left: 2%;
+  right: 2%;
+  top: 34%;
+  bottom: -6%;
+  background: radial-gradient(
+    50% 50% at 50% 58%,
+    rgba(58, 44, 26, 0.32) 0%,
+    rgba(58, 44, 26, 0.18) 40%,
+    rgba(58, 44, 26, 0) 74%
+  );
+  filter: blur(26px);
+  opacity: calc(1 - var(--shade, 0) * 0.42);
+}
+.contact {
+  left: 7%;
+  right: 7%;
+  top: 68%;
+  bottom: 0%;
+  background: radial-gradient(
+    50% 44% at 50% 46%,
+    rgba(44, 32, 14, 0.38) 0%,
+    rgba(44, 32, 14, 0.16) 48%,
+    rgba(44, 32, 14, 0) 78%
+  );
+  filter: blur(11px);
+  opacity: calc(1 - var(--shade, 0) * 0.5);
+}
+.hairline {
+  left: 11%;
+  right: 11%;
+  top: 79%;
+  bottom: 4%;
+  background: radial-gradient(
+    50% 52% at 50% 42%,
+    rgba(40, 28, 10, 0.32) 0%,
+    rgba(40, 28, 10, 0) 76%
+  );
+  filter: blur(4px);
+  opacity: calc(1 - var(--shade, 0) * 0.62);
+}
+
+.sbFull {
+  position: absolute;
+  inset: 0;
+}
+.sbFull img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.sbHalf {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  overflow-x: clip;
+  overflow-y: visible;
+}
+.sbHalf.left {
+  left: 0;
+}
+.sbHalf.right {
+  left: 50%;
+}
+.sbHalfImg {
+  width: 200%;
+  max-width: none;
+  height: auto;
+  display: block;
+}
+.sbHalfImg.right {
+  margin-left: -100%;
+}
+/* the shadow the lifting leaf throws onto the page beneath it */
+.gutterShade {
+  position: absolute;
+  top: var(--pg);
+  bottom: var(--pg);
+  width: 46%;
+  pointer-events: none;
+  opacity: calc(var(--shade, 0) * 0.62);
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 0,
+    #000 5.2%,
+    #000 94.8%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    180deg,
+    transparent 0,
+    #000 5.2%,
+    #000 94.8%,
+    transparent 100%
+  );
+}
+.gutterShade.left {
+  right: 0;
+  background: linear-gradient(
+    270deg,
+    rgba(52, 38, 20, 0.3),
+    rgba(52, 38, 20, 0) 82%
+  );
+}
+.gutterShade.right {
+  left: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(52, 38, 20, 0.24),
+    rgba(52, 38, 20, 0) 82%
+  );
+}
+
+/* ---- the turning leaf: nested strips forming a curved surface ---- */
+.curl {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: calc(var(--bw, 0px) * var(--span));
+  transform-style: preserve-3d;
+  z-index: 6;
+}
+.curl.next {
+  left: 50%;
+  transform-origin: left center;
+  transform: rotateY(calc(-1 * var(--tt, 0deg)));
+}
+.curl.prev {
+  right: 50%;
+  transform-origin: right center;
+  transform: rotateY(var(--tt, 0deg));
+}
+.strip {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: calc(var(--bw, 0px) * var(--span) / var(--n));
+  transform-style: preserve-3d;
+}
+.curl.next .strip {
+  transform-origin: left center;
+}
+.curl.prev .strip {
+  transform-origin: right center;
+}
+.curl.next > .strip {
+  left: 0;
+}
+.curl.prev > .strip {
+  right: 0;
+  left: auto;
+}
+.curl.next .strip .strip {
+  left: 100%;
+  transform: rotateY(var(--td, 0deg));
+}
+.curl.prev .strip .strip {
+  right: 100%;
+  transform: rotateY(calc(-1 * var(--td, 0deg)));
+}
+.face {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: -1.1px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  background-repeat: no-repeat;
+  background-size: var(--bw, 0px) auto;
+}
+.face.back {
+  transform: rotateY(180deg);
+}
+.face .sh,
+.face .gl {
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 0,
+    #000 5.2%,
+    #000 94.8%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    180deg,
+    transparent 0,
+    #000 5.2%,
+    #000 94.8%,
+    transparent 100%
+  );
+}
+/* the outermost strip carries the page's own edge, so its shading has to
+   fade out sideways too or it paints past the paper */
+.strip.edge .face .sh,
+.strip.edge .face .gl {
+  -webkit-mask-image: linear-gradient(
+      180deg,
+      transparent 0,
+      #000 9%,
+      #000 91%,
+      transparent 100%
+    ),
+    var(--hf);
+  mask-image: linear-gradient(
+      180deg,
+      transparent 0,
+      #000 9%,
+      #000 91%,
+      transparent 100%
+    ),
+    var(--hf);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+.curl.next .strip.edge .face.front,
+.curl.prev .strip.edge .face.back {
+  --hf: linear-gradient(90deg, #000 0 22%, transparent 96%);
+}
+.curl.next .strip.edge .face.back,
+.curl.prev .strip.edge .face.front {
+  --hf: linear-gradient(270deg, #000 0 22%, transparent 96%);
+}
+.face .sh {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--pg);
+  bottom: var(--pg);
+  pointer-events: none;
+}
+.curl.next .face.front .sh,
+.curl.prev .face.back .sh {
+  background: linear-gradient(
+    90deg,
+    rgba(58, 43, 20, var(--a1, 0)),
+    rgba(58, 43, 20, var(--a2, 0))
+  );
+}
+.curl.next .face.back .sh,
+.curl.prev .face.front .sh {
+  background: linear-gradient(
+    90deg,
+    rgba(58, 43, 20, var(--a2, 0)),
+    rgba(58, 43, 20, var(--a1, 0))
+  );
+}
+.face .gl {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--pg);
+  bottom: var(--pg);
+  pointer-events: none;
+  background: #fffaf0;
+  opacity: calc(var(--shade, 0) * var(--lit, 1) * var(--lit, 1) * 0.2);
+}
+
+/* ---- the loupe: a real magnifier lying on the page. Pick it up and
+       drag it across the book; it stays where you put it. ---- */
+.loupe {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--lr, 270px);
+  height: var(--lr, 270px);
+  pointer-events: none;
+  z-index: 80;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  will-change: transform;
+}
+.loupe.loupeOn {
+  opacity: 1;
+}
+.loupe.held .ring {
+  cursor: grabbing;
+}
+.ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: auto;
+  cursor: grab;
+  padding: calc(var(--lr, 270px) * 0.058);
+  box-shadow: 0 1px 2px rgba(58, 44, 26, 0.3),
+    0 10px 18px rgba(58, 44, 26, 0.24), 0 26px 40px rgba(58, 44, 26, 0.2),
+    0 48px 66px rgba(58, 44, 26, 0.13);
+}
+/* the bezel is an annulus, so the glass really is see-through */
+.ring:before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background: linear-gradient(
+    146deg,
+    #fdf7e9 0%,
+    #e6d7b4 14%,
+    #b69d70 32%,
+    #7d6740 50%,
+    #cdbb92 66%,
+    #f4ead3 80%,
+    #9b8459 100%
+  );
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.8),
+    inset 0 -2px 3px rgba(70, 52, 26, 0.5);
+  -webkit-mask-image: radial-gradient(
+    circle closest-side at 50% 50%,
+    transparent 0 88.2%,
+    #000 89.8% 100%
+  );
+  mask-image: radial-gradient(
+    circle closest-side at 50% 50%,
+    transparent 0 88.2%,
+    #000 89.8% 100%
+  );
+}
+/* the handle, drawn before the bezel so the ring covers its inner end */
+.grip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--lr, 270px) * 0.74);
+  height: calc(var(--lr, 270px) * 0.125);
+  transform-origin: 0 50%;
+  transform: rotate(40deg) translate(calc(var(--lr, 270px) * 0.33), -50%);
+  border-radius: calc(var(--lr, 270px) * 0.06);
+  pointer-events: auto;
+  cursor: grab;
+  background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.46) 0 13%,
+      rgba(255, 255, 255, 0) 44%,
+      rgba(0, 0, 0, 0.26) 100%
+    ),
+    linear-gradient(
+      90deg,
+      #d9bd82 0 14%,
+      #a9884e 14% 20%,
+      #6d4c2b 20% 62%,
+      #5a3d22 62% 92%,
+      #7a563180 92% 100%
+    );
+  box-shadow: 0 8px 15px rgba(58, 44, 26, 0.26),
+    0 18px 26px rgba(58, 44, 26, 0.14);
+}
+.lens {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-repeat: no-repeat;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(52, 40, 22, 0.55),
+    inset 0 4px 12px rgba(40, 30, 14, 0.28),
+    inset 0 -7px 16px rgba(255, 250, 240, 0.14);
+}
+/* A second copy of the book, sitting beside the glass outside the tilt, and
+   scaled about whichever page point the glass is currently over. */
+.zoomwrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+}
+.zoominner {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+}
+.lens:before,
+.lens:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+}
+/* the glass bends and darkens toward its rim, with a faint colour fringe */
+.lens:before {
+  z-index: 1;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(0, 0, 0, 0) 54%,
+    rgba(58, 44, 26, 0.1) 76%,
+    rgba(46, 34, 16, 0.34) 100%
+  );
+  box-shadow: inset 0 0 0 2px rgba(130, 162, 196, 0.26),
+    inset 0 0 0 4px rgba(206, 158, 112, 0.15);
+}
+/* the dome: one broad specular and a tight crescent opposite it */
+.lens:after {
+  z-index: 2;
+  background: radial-gradient(
+      36% 26% at 29% 19%,
+      rgba(255, 255, 255, 0.3),
+      rgba(255, 255, 255, 0) 76%
+    ),
+    radial-gradient(
+      24% 16% at 74% 86%,
+      rgba(255, 255, 255, 0.12),
+      rgba(255, 255, 255, 0) 80%
+    ),
+    linear-gradient(
+      150deg,
+      rgba(255, 255, 255, 0.06) 0 18%,
+      rgba(255, 255, 255, 0) 42%
+    );
+}
+@media (pointer: coarse) {
+  .loupe {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------- controls */
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 5px 7px;
+  background: rgba(250, 246, 238, 0.62);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.tool {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+.tool:hover {
+  background: rgba(255, 252, 244, 0.9);
+  color: var(--ink);
+}
+.tool[aria-pressed="true"] {
+  background: rgba(154, 106, 62, 0.16);
+  color: var(--earth);
+}
+.tool:disabled {
+  opacity: 0.32;
+  cursor: default;
+  background: transparent;
+}
+.tool svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+.toolSep {
+  width: 1px;
+  height: 17px;
+  background: var(--hairline);
+  margin: 0 2px;
+}
+.zoomRead {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+  min-width: 40px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.sbZone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border: 0;
+  background: transparent;
+  cursor: grab;
+  z-index: 60;
+  -webkit-tap-highlight-color: transparent;
+}
+.sbZone:active {
+  cursor: grabbing;
+}
+.sbPrev {
+  left: 0;
+  width: 50%;
+}
+.sbNext {
+  right: 0;
+  width: 50%;
+}
+
+.captions {
+  display: grid;
+  justify-items: center;
+}
+.captions > * {
+  grid-area: 1/1;
+  margin: 0;
+}
+.sbCaption {
+  font-size: 13px;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  animation: cap-in 0.5s ease both;
+}
+.sbCaption.live {
+  animation: none;
+}
+@keyframes cap-in {
+  0% {
+    opacity: 0;
+  }
+}
+.hint {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  transition: opacity 0.4s ease;
+}
+.hintGone {
+  opacity: 0;
+}
+/* there is no glass to drag on a touch screen */
+@media (pointer: coarse) {
+  .hintGlass {
+    display: none;
+  }
+}
+
+/* the opening riffle: too fast to read, so it is smeared sideways */
+.intro .sbFull img,
+.intro .sbHalfImg {
+  filter: url(#sb-mblur-1);
+}
+.intro.introDeep .sbFull img,
+.intro.introDeep .sbHalfImg {
+  filter: url(#sb-mblur-2);
+}
+.intro .sbCaption {
+  animation: none;
+}
+
+@media (max-width: 640px) {
+  .wrap {
+    width: 100vw;
+    margin-inline: calc(50% - 50vw);
+  }
+  .arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 70;
+    padding: 12px 6px;
+  }
+  .arrow.left {
+    left: 2px;
+  }
+  .arrow.right {
+    right: 2px;
+  }
+  .frame {
+    max-width: none;
+  }
+  .hint {
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    padding: 0 16px;
+    text-align: center;
+  }
+}

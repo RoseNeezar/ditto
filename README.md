@@ -2,6 +2,27 @@
 
 This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
 
+## Pages
+
+- `/` — the landing page: a sketchbook of nine plates, one for each part of the
+  board. Drag a page to turn it, drag the magnifying glass across it to read the
+  small print, or pick a plate from the index.
+- `/board` — the board itself.
+
+### Sketchbook artwork
+
+The plates and the botanical trim in `public/sketchbook/` are drawn by a script
+rather than exported from a design tool:
+
+```bash
+node scripts/generate-sketchbook.mjs
+```
+
+The output is deterministic, so re-running it after an edit produces a clean
+diff. The paper geometry lives in two places that have to agree: `PAD_X`/`PAD_Y`
+in the script and `PAPER` in `src/views/landing/sketchbookEngine.ts` — if they
+drift, the turning page tears away from the edge of the sheet.
+
 ## What's next? How do I make an app with this?
 
 We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
