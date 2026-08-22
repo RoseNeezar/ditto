@@ -15,6 +15,15 @@ module.exports = {
     },
     extend: {
       colors: {
+        /* the landing page's paper palette — see .paper-theme in globals.css */
+        paper: "var(--paper)",
+        ink: {
+          DEFAULT: "var(--ink)",
+          soft: "var(--ink-soft)",
+          faint: "var(--ink-faint)",
+        },
+        earth: "var(--earth)",
+        hairline: "var(--hairline)",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -56,6 +65,8 @@ module.exports = {
       },
       fontFamily: {
         sans: ["var(--font-sans)", ...fontFamily.sans],
+        display: ["var(--font-display)", ...fontFamily.serif],
+        book: ["var(--font-book)", ...fontFamily.serif],
       },
       keyframes: {
         "accordion-down": {
@@ -66,10 +77,15 @@ module.exports = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        cue: {
+          "0%, 100%": { opacity: "0.15" },
+          "50%": { opacity: "0.7" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        cue: "cue 2.6s ease-in-out infinite",
       },
     },
   },

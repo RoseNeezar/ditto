@@ -1,17 +1,26 @@
-import { NextPage } from "next";
+import { type NextPage } from "next";
+import Head from "next/head";
 import dynamic from "next/dynamic";
-import Kanban from "../views/kanban/Kanban.view";
-import { columns, tasks } from "../views/kanban/mock";
 
-const KanbanView = dynamic(() => Promise.resolve(Kanban), {
-  ssr: false,
-});
+import Landing from "@/views/landing/Landing.view";
+
+/* the sketchbook measures itself against the viewport, so it renders in the
+   browser rather than being guessed at on the server */
+const LandingView = dynamic(() => Promise.resolve(Landing), { ssr: false });
 
 const Home: NextPage = () => {
   return (
-    <div className="flex w-full flex-1 ">
-      <KanbanView Tasks={tasks} List={columns} />
-    </div>
+    <>
+      <Head>
+        <title>Ditto — a board that feels like paper</title>
+        <meta
+          name="description"
+          content="A small kanban board built on the T3 stack: lists you can pick up, cards you can slide across the table."
+        />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
+      <LandingView />
+    </>
   );
 };
 
